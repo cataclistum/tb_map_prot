@@ -6,7 +6,11 @@ import folium
 import os
 
 # Get API key from environment variable
-MAPTILER_API_KEY = os.environ.get("MAPTILER_API_KEY", "PLACEHOLDER_KEY")
+try:
+    MAPTILER_API_KEY = st.secrets["maptiler"]["MAPTILER_API_KEY"]
+except Exception as e:
+    MAPTILER_API_KEY = "PLACEHOLDER_KEY"
+    st.warning(f"Could not load MapTiler API key from secrets: {e}")
 
 MAPTILER_TILES = f"https://api.maptiler.com/maps/dataviz/256/{{z}}/{{x}}/{{y}}.png?key={MAPTILER_API_KEY}"
 MAPTILER_ATTR = "MapTiler"
