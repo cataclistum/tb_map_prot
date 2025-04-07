@@ -24,8 +24,25 @@ MAX_RADIUS = 20  # maximum circle radius
 st.set_page_config(layout="wide")
 
 # === DATA LOAD ===
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def load_data():
+    try:
+        df = pd.read_excel("output.xlsx")
+        # Pre-process to avoid doing this repeatedly
+        df = df.fillna({
+            "Subject": "no",
+            "Recorded": "no",
+            "From": "no",
+            "Genre": "Unknown"
+        })
+        return df
+    except FileNotFoundError:
+        st.error("Error: 'output.xlsx' file not found.")
+        return pd.DataFrame()
+
+
 try:
-    df = pd.read_excel("output.xlsx")
+    df = load_data()
 except FileNotFoundError:
     st.error("Error: 'output.xlsx' file not found. Please make sure the file is in the same directory as this script.")
     st.stop()
