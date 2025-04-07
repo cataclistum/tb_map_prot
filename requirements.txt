@@ -1,0 +1,6 @@
+streamlit
+pandas
+numpy
+folium
+streamlit-folium
+openpyxl  # For Excel file handling
