@@ -334,43 +334,49 @@ with col1:
 
 # === RELEVANT ITEMS ===
 with col2:
-    if st.session_state.show_relevant_items:
-        results_sort = st.selectbox("Sort", options=["Tracks first", "People first"], index=0)
+    st.markdown("Search results")
+    results_sort = st.selectbox("Sort", options=["Tracks first", "People first"], index=0)
+    st.image("record.png", use_container_width=True)
 
-        # Display results based on map click
-        if st_map and 'last_clicked' in st_map and st_map['last_clicked']:
-            clicked_lat = st_map['last_clicked']['lat']
-            clicked_lng = st_map['last_clicked']['lng']
 
-            # Find locations near the clicked point (with some tolerance)
-            tolerance = 0.01  # Adjust based on your needs
-            nearby_items = df_filtered[
-                (df_filtered['Latitude'] >= clicked_lat - tolerance) &
-                (df_filtered['Latitude'] <= clicked_lat + tolerance) &
-                (df_filtered['Longitude'] >= clicked_lng - tolerance) &
-                (df_filtered['Longitude'] <= clicked_lng + tolerance)
-                ]
-
-            if not nearby_items.empty:
-                # Sort results based on user preference
-                if results_sort == "Tracks first":
-                    nearby_items = nearby_items.sort_values(by=["Type", "Date"], key=lambda x: x.map(
-                        {"track": 0, "person": 1} if x.name == "Type" else x))
-                else:
-                    nearby_items = nearby_items.sort_values(by=["Type", "Date"], key=lambda x: x.map(
-                        {"person": 0, "track": 1} if x.name == "Type" else x))
-
-                # Display nearby items
-                location_name = nearby_items.iloc[0]["LocationEN"]
-                st.subheader(f"Items at {location_name}")
-
-                for i, (_, item) in enumerate(nearby_items.iterrows()):
-                    with st.expander(f"{item['Type'].title()}: {item.get('Title', item.get('Name', 'Unnamed'))}"):
-                        # Display item details based on type
-                        for col in item.index:
-                            if col not in ["Latitude", "Longitude", "Type"] and not pd.isna(item[col]):
-                                st.write(f"**{col}:** {item[col]}")
-            else:
-                st.markdown("Click on a location on the map to see items from that area.")
-        else:
-            st.markdown("Click on a location on the map to see items from that area.")
+    # if st.session_state.show_relevant_items:
+    #     results_sort = st.selectbox("Sort", options=["Tracks first", "People first"], index=0)
+    #
+    #     # Display results based on map click
+    #
+    #     if st_map and 'last_clicked' in st_map and st_map['last_clicked']:
+    #         clicked_lat = st_map['last_clicked']['lat']
+    #         clicked_lng = st_map['last_clicked']['lng']
+    #
+    #         # Find locations near the clicked point (with some tolerance)
+    #         tolerance = 0.01  # Adjust based on your needs
+    #         nearby_items = df_filtered[
+    #             (df_filtered['Latitude'] >= clicked_lat - tolerance) &
+    #             (df_filtered['Latitude'] <= clicked_lat + tolerance) &
+    #             (df_filtered['Longitude'] >= clicked_lng - tolerance) &
+    #             (df_filtered['Longitude'] <= clicked_lng + tolerance)
+    #             ]
+    #
+    #         if not nearby_items.empty:
+    #             # Sort results based on user preference
+    #             if results_sort == "Tracks first":
+    #                 nearby_items = nearby_items.sort_values(by=["Type", "Date"], key=lambda x: x.map(
+    #                     {"track": 0, "person": 1} if x.name == "Type" else x))
+    #             else:
+    #                 nearby_items = nearby_items.sort_values(by=["Type", "Date"], key=lambda x: x.map(
+    #                     {"person": 0, "track": 1} if x.name == "Type" else x))
+    #
+    #             # Display nearby items
+    #             location_name = nearby_items.iloc[0]["LocationEN"]
+    #             st.subheader(f"Items at {location_name}")
+    #
+    #             for i, (_, item) in enumerate(nearby_items.iterrows()):
+    #                 with st.expander(f"{item['Type'].title()}: {item.get('Title', item.get('Name', 'Unnamed'))}"):
+    #                     # Display item details based on type
+    #                     for col in item.index:
+    #                         if col not in ["Latitude", "Longitude", "Type"] and not pd.isna(item[col]):
+    #                             st.write(f"**{col}:** {item[col]}")
+    #         else:
+    #             st.markdown("Click on a location on the map to see items from that area.")
+    #     else:
+    #         st.markdown("Click on a location on the map to see items from that area.")
