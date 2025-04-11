@@ -4,6 +4,7 @@ import numpy as np
 from streamlit_folium import st_folium
 import folium
 import os
+from folium.plugins import Fullscreen
 
 # Get API key from environment variable
 try:
@@ -38,11 +39,21 @@ SCALE_MULTIPLIER = 8  # adjust overall size
 MIN_RADIUS = 1  # minimum circle radius
 MAX_RADIUS = 20  # maximum circle radius
 
+# Zoom level thresholds for showing location names
+# These values determine when location names appear based on circle size and zoom level
+ZOOM_THRESHOLDS = {
+    6: 15,  # At zoom level 6, only show names for circles with radius > 15
+    7: 13,  # At zoom level 7, show names for circles with radius > 10
+    8: 10,  # At zoom level 8, show names for circles with radius > 5
+    9: 8,  # At zoom level 9, show names for circles with radius > 3
+    10: 0  # At zoom level 10 and above, show all names
+}
+
 # === PAGE CONFIG ===
 st.set_page_config(layout="wide")
 
 # Display menu.png at the top center of the screen
-col_left, col_center, col_right = st.columns([1, 2, 1])
+col_left, col_center, col_right = st.columns([0.1, 2, 0.1])
 with col_center:
     st.image("menu.png", use_container_width=True)
 
@@ -57,7 +68,8 @@ def load_data():
             "Subject": "no",
             "Recorded": "no",
             "From": "no",
-            "Genre": "Unknown"
+            "Genre": "Unknown",
+            "LocationGD": ""  # Ensure LocationGD has empty string instead of NaN
         })
         return df
     except FileNotFoundError:
@@ -83,7 +95,8 @@ df = df.fillna({
     "Subject": "no",
     "Recorded": "no",
     "From": "no",
-    "Genre": "Unknown"
+    "Genre": "Unknown",
+    "LocationGD": ""  # Ensure LocationGD has empty string instead of NaN
 })
 
 # === SESSION STATE ===
@@ -91,6 +104,8 @@ if "show_filters" not in st.session_state:
     st.session_state.show_filters = True
 if "show_relevant_items" not in st.session_state:
     st.session_state.show_relevant_items = True
+if "map_zoom" not in st.session_state:
+    st.session_state.map_zoom = 6  # Default zoom level
 
 # === FILTER PANEL ===
 people_types = ["All", "With songs", "With stories", "With information", "With verses", "With music",
@@ -107,15 +122,18 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
             show_tracks = st.toggle("Show Tracks", value=True)
 
         search_tracks = st.text_input("Full text search in tracks",
-                                      help="Searches in track titles and descriptions/summaries")
+                                      help='''Searches in track titles and descriptions/summaries.
+                                      Use title:, description:, summary:, notes:, classification: keywords to improve
+                                      search precision. For example - summary:"Highlands"''')
         genre = st.selectbox("Genre", options=["All"] + sorted(df["Genre"].dropna().unique().tolist()), index=0)
-        tracks_date_range = st.slider("Date recorded", min_value=1935, max_value=2025,
-                                      value=(1935, 2025))
+        language = st.selectbox("Language", options=["Any", "English", "Gaelic", "Scots", "Other"], index=0)
         collection = st.selectbox("Collection", options=["Choose a collection", "SoSS", "BBC", "Canna"], index=0)
         subject = st.toggle("Subject", value=True, help="Shows/Hides locations mentioned in tracks")
         recorded = st.toggle("Recorded", value=True, help="Shows/Hides locations where tracks have been recorded")
-        transcribed = st.toggle("Transcribed", value=False, help="Shows/Hides locations where tracks have been recorded")
-
+        transcribed = st.toggle("Transcribed only", value=False,
+                                help="Shows/Hides locations where tracks have no transcriptions")
+        tracks_date_range = st.slider("Date recorded", min_value=1935, max_value=2025,
+                                      value=(1935, 2025))
 
     with filter_col2:
         people_title_col, show_people_col = st.columns([4, 2])  # Adjust ratio as needed
@@ -125,20 +143,24 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
             show_people = st.toggle("Show People", value=True)
 
         search_people = st.text_input("Full text search in people",
-                                      help="Searches in fieldworkers' or contributors' names and patronymics")
+                                      help='''Searches in fieldworkers\' or contributors\' names and patronymics.
+                                      Use name:, patronymics: or bio: keywords to improve search
+                                      precision. For example - name:"Smith" or bio:"singer"''')
         type2 = st.selectbox("Type", options=people_types, index=0)
+        from_toggle = st.toggle("From", value=True, help="Shows/Hides native areas of fieldworkers and contributors")
         people_date_range = st.slider("Date range", min_value=1900, max_value=2025,
                                       value=(1900, 2025))
-        from_toggle = st.toggle("From", value=True, help="Shows/Hides native areas of fieldworkers and contributors")
 
 
     st.divider()
 
-    map_filters_col, blank_col = st.columns([2, 2])
-    with map_filters_col:
-        location_names = ["English", "Gàidhlig"]
-        location_filter = st.selectbox("Location names", options=location_names, index=0)
+    map_filters_left_col, map_filters_right_col = st.columns([2, 2])
+    with map_filters_left_col:
         map_type = st.selectbox("Map type", options=list(MAP_TYPES.keys()), index=0)
+
+    with map_filters_right_col:
+        location_names = ["None", "English", "Gàidhlig", "English/Gàidhlig"]
+        location_filter = st.selectbox("Location names", options=location_names, index=0)
 
 
 # === FILTERING FUNCTION ===
@@ -158,6 +180,9 @@ def apply_filters(df):
         if genre != "All":
             tracks_mask &= df_filtered["Genre"] == genre
 
+        if language != "Any" and "Language" in df_filtered.columns:
+            tracks_mask &= df_filtered["Language"] == language
+
         if collection != "Choose a collection":
             if "Collection" in df_filtered.columns:
                 tracks_mask &= df_filtered["Collection"] == collection
@@ -165,9 +190,11 @@ def apply_filters(df):
         if search_tracks:
             # Assuming there's a column like "Title" or "Description" to search in
             # Adjust column names as needed
+            search_condition = False
             for col in ["Title", "Description", "Summary"]:
                 if col in df_filtered.columns:
-                    tracks_mask &= df_filtered[col].fillna("").str.contains(search_tracks, case=False)
+                    search_condition |= df_filtered[col].fillna("").str.contains(search_tracks, case=False)
+            tracks_mask &= search_condition
 
         if not subject:
             tracks_mask &= ~((df_filtered["Type"] == "track") & (df_filtered["Subject"].str.lower() == "yes"))
@@ -199,9 +226,11 @@ def apply_filters(df):
         if search_people:
             # Assuming there are columns like "Name" or "Patronymic" to search in
             # Adjust column names as needed
+            search_condition = False
             for col in ["Name", "Patronymic", "FullName"]:
                 if col in df_filtered.columns:
-                    people_mask &= df_filtered[col].fillna("").str.contains(search_people, case=False)
+                    search_condition |= df_filtered[col].fillna("").str.contains(search_people, case=False)
+            people_mask &= search_condition
 
         if not from_toggle:
             people_mask &= ~((df_filtered["Type"] == "person") & (df_filtered["From"].str.lower() == "yes"))
@@ -237,6 +266,25 @@ def compute_scaled_radius(value):
     return min(max(raw, MIN_RADIUS), MAX_RADIUS)
 
 
+# === GET DISPLAY NAME BASED ON LOCATION FILTER ===
+def get_display_name(row, location_filter):
+    en_name = row.get("LocationEN", "")
+    gd_name = row.get("LocationGD", "")
+
+    if location_filter == "None":
+        return ""
+    elif location_filter == "English":
+        return en_name
+    elif location_filter == "Gàidhlig":
+        return gd_name if gd_name else en_name  # Fallback to English if Gaelic is empty
+    elif location_filter == "English/Gàidhlig":
+        if gd_name:
+            return f"{en_name}/{gd_name}"
+        else:
+            return en_name
+    return en_name  # Default fallback
+
+
 # === MAP ===
 with col1:
     # Create base map with appropriate base map type
@@ -250,14 +298,25 @@ with col1:
         # For regular maps (Standard, Landscape, Satellite)
         base_tiles = MAP_TYPES[selected_map_type]
 
+    # Get current zoom level from session state or use default
+    current_zoom = st.session_state.get("map_zoom", 6)
+
     m = folium.Map(
         location=[df_filtered["Latitude"].mean() if not df_filtered.empty else 56.4907,
                   df_filtered["Longitude"].mean() if not df_filtered.empty else -4.2026],
         # Default to center of Scotland if empty
-        zoom_start=6,
+        zoom_start=current_zoom,
         tiles=base_tiles,
         attr=MAPTILER_ATTR
     )
+
+    # Add Fullscreen button to map
+    Fullscreen(
+        position='topleft',
+        title='Expand map to fullscreen',
+        title_cancel='Exit fullscreen',
+        force_separate_button=True
+    ).add_to(m)
 
     # === DEFINE LAYER SPECS ===
     layer_specs = []
@@ -267,7 +326,7 @@ with col1:
             layer_specs.append({
                 "name": "Subject tracks",
                 "filter": (df_filtered["Type"] == "track") & (df_filtered["Subject"].str.lower() == "yes"),
-                "color": "yellow"
+                "color": "black"
             })
         if recorded:
             layer_specs.append({
@@ -286,15 +345,24 @@ with col1:
 
     # Add layers to map
     has_data = False
+
+    # Find appropriate threshold for current zoom level
+    display_threshold = 100  # Default: hide all
+    for zoom_level, min_radius in ZOOM_THRESHOLDS.items():
+        if current_zoom >= zoom_level:
+            display_threshold = min_radius
+
     for spec in layer_specs:
         subset = df_filtered[spec["filter"]].copy()
         if not subset.empty:
             has_data = True
-            grouped = subset.groupby(["Latitude", "Longitude", "LocationEN"]).size().reset_index(name="Items")
+            grouped = subset.groupby(["Latitude", "Longitude", "LocationEN", "LocationGD"]).size().reset_index(
+                name="Items")
             grouped["Radius"] = grouped["Items"].apply(compute_scaled_radius)
 
             for _, row in grouped.iterrows():
-                folium.CircleMarker(
+                # Add CircleMarker for each location
+                circle = folium.CircleMarker(
                     location=[row["Latitude"], row["Longitude"]],
                     radius=row["Radius"],
                     color=spec["color"],
@@ -304,6 +372,29 @@ with col1:
                     fill_opacity=0.5,
                     tooltip=f"{row['LocationEN']}: {row['Items']} items"
                 ).add_to(m)
+
+                # Get the display name based on the selected location filter
+                display_name = get_display_name(row, location_filter)
+
+                # Only add label if the radius is above the threshold for the current zoom level
+                if row["Radius"] >= display_threshold:
+                    folium.Marker(
+                        location=[row["Latitude"] - 0.015, row["Longitude"]],  # Position below the circle
+                        icon=folium.DivIcon(
+                            icon_size=(150, 20),
+                            icon_anchor=(75, 0),
+                            html=f"""
+                                <div style="text-align: center; 
+                                           white-space: nowrap; 
+                                           font-weight: bold;
+                                           text-shadow: 1px 1px 1px white, -1px -1px 1px white, 1px -1px 1px white, -1px 1px 1px white;
+                                           color: {spec["color"]};">
+                                    {display_name}
+                                </div>
+                            """
+                        ),
+                        tooltip=display_name
+                    ).add_to(m)
 
     if not has_data:
         st.warning("No data to display based on current filters. Please adjust your filter settings.")
@@ -318,8 +409,14 @@ with col1:
             opacity=0.7
         ).add_to(m)
 
-    # Display the map
+    # Display the map and track zoom changes
     st_map = st_folium(m, width="100%", height=700)
+
+    # Update session state with current zoom if available
+    if st_map and 'zoom' in st_map:
+        if st_map['zoom'] != st.session_state.map_zoom:
+            st.session_state.map_zoom = st_map['zoom']
+            st.rerun()  # Rerun the app to redraw with new zoom level
 
     # === LEGEND ===
     legend_html = """
@@ -328,7 +425,7 @@ with col1:
     """
 
     if show_tracks and subject:
-        legend_html += """<div style='margin-bottom: 5px;'><span style='background-color: yellow; border-radius: 50%; display: inline-block; height: 12px; width: 12px;'></span> Tracks about</div>"""
+        legend_html += """<div style='margin-bottom: 5px;'><span style='background-color: black; border-radius: 50%; display: inline-block; height: 12px; width: 12px;'></span> Tracks about</div>"""
     if show_tracks and recorded:
         legend_html += """<div style='margin-bottom: 5px;'><span style='background-color: green; border-radius: 50%; display: inline-block; height: 12px; width: 12px;'></span> Tracks recorded</div>"""
     if show_people and from_toggle:
