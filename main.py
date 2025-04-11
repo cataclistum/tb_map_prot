@@ -12,7 +12,25 @@ except Exception as e:
     MAPTILER_API_KEY = "PLACEHOLDER_KEY"
     st.warning(f"Could not load MapTiler API key from secrets: {e}")
 
-MAPTILER_TILES = f"https://api.maptiler.com/maps/dataviz/256/{{z}}/{{x}}/{{y}}.png?key={MAPTILER_API_KEY}"
+# Map types and overlays
+MAP_TYPES = {
+    "Standard": f"https://api.maptiler.com/maps/dataviz/256/{{z}}/{{x}}/{{y}}.png?key={MAPTILER_API_KEY}",
+    "Landscape": f"https://api.maptiler.com/maps/landscape/256/{{z}}/{{x}}/{{y}}.png?key={MAPTILER_API_KEY}",
+    "Satellite": f"https://api.maptiler.com/maps/satellite/256/{{z}}/{{x}}/{{y}}.jpg?key={MAPTILER_API_KEY}",
+    "Great Britain, Ordnance Survey, 1900s": {
+        "base": f"https://api.maptiler.com/maps/dataviz/256/{{z}}/{{x}}/{{y}}.png?key={MAPTILER_API_KEY}",
+        "overlay": f"https://api.maptiler.com/tiles/uk-osgb1888/{{z}}/{{x}}/{{y}}?key={MAPTILER_API_KEY}"
+    },
+    "Great Britain, Ordnance Survey, 1'' (1885-1903)": {
+        "base": f"https://api.maptiler.com/maps/dataviz/256/{{z}}/{{x}}/{{y}}.png?key={MAPTILER_API_KEY}",
+        "overlay": f"https://api.maptiler.com/tiles/uk-osgb63k1885/{{z}}/{{x}}/{{y}}.png?key={MAPTILER_API_KEY}"
+    },
+    "Great Britain, Ordnance Survey, 6'' (1888-1913)": {
+        "base": f"https://api.maptiler.com/maps/dataviz/256/{{z}}/{{x}}/{{y}}.png?key={MAPTILER_API_KEY}",
+        "overlay": f"https://api.maptiler.com/tiles/uk-osgb10k1888/{{z}}/{{x}}/{{y}}.jpg?key={MAPTILER_API_KEY}"
+    }
+}
+
 MAPTILER_ATTR = "MapTiler"
 
 # Circle scale config
@@ -22,6 +40,12 @@ MAX_RADIUS = 20  # maximum circle radius
 
 # === PAGE CONFIG ===
 st.set_page_config(layout="wide")
+
+# Display menu.png at the top center of the screen
+col_left, col_center, col_right = st.columns([1, 2, 1])
+with col_center:
+    st.image("menu.png", use_container_width=True)
+
 
 # === DATA LOAD ===
 @st.cache_data(ttl=3600)  # Cache for 1 hour
@@ -71,8 +95,6 @@ if "show_relevant_items" not in st.session_state:
 # === FILTER PANEL ===
 people_types = ["All", "With songs", "With stories", "With information", "With verses", "With music",
                 "With radio programmes"]
-map_overlay_types = ["None", "Great Britain, Ordnance Survey, 1900s", "Great Britain, Ordnance Survey, 1'' (1885-1903)",
-                     "Great Britain, Ordnance Survey, 6'' (1888-1913)"]
 
 with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
     filter_col1, filter_col2 = st.columns(2)
@@ -87,8 +109,13 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
         search_tracks = st.text_input("Full text search in tracks",
                                       help="Searches in track titles and descriptions/summaries")
         genre = st.selectbox("Genre", options=["All"] + sorted(df["Genre"].dropna().unique().tolist()), index=0)
+        tracks_date_range = st.slider("Date recorded", min_value=1935, max_value=2025,
+                                      value=(1935, 2025))
+        collection = st.selectbox("Collection", options=["Choose a collection", "SoSS", "BBC", "Canna"], index=0)
         subject = st.toggle("Subject", value=True, help="Shows/Hides locations mentioned in tracks")
         recorded = st.toggle("Recorded", value=True, help="Shows/Hides locations where tracks have been recorded")
+        transcribed = st.toggle("Transcribed", value=False, help="Shows/Hides locations where tracks have been recorded")
+
 
     with filter_col2:
         people_title_col, show_people_col = st.columns([4, 2])  # Adjust ratio as needed
@@ -100,31 +127,23 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
         search_people = st.text_input("Full text search in people",
                                       help="Searches in fieldworkers' or contributors' names and patronymics")
         type2 = st.selectbox("Type", options=people_types, index=0)
-        subject2 = st.toggle("Subject ", value=True,
-                             help="Shows/Hides locations fieldworkers or contributors mentioned")
+        people_date_range = st.slider("Date range", min_value=1900, max_value=2025,
+                                      value=(1900, 2025))
         from_toggle = st.toggle("From", value=True, help="Shows/Hides native areas of fieldworkers and contributors")
 
+
     st.divider()
-
-    min_year = int(df["Date"].min()) if not pd.isna(df["Date"].min()) else 1935
-    max_year = int(df["Date"].max()) if not pd.isna(df["Date"].max()) else 2025
-
-    date_range = st.slider("Date range", min_value=1935, max_value=2025, value=(min_year, max_year))
 
     map_filters_col, blank_col = st.columns([2, 2])
     with map_filters_col:
         location_names = ["English", "Gàidhlig"]
         location_filter = st.selectbox("Location names", options=location_names, index=0)
-        overlays = st.selectbox("Map overlay", options=map_overlay_types, index=0)
-        outwith_scotland = st.toggle("Show locations outwith Scotland", value=True)
+        map_type = st.selectbox("Map type", options=list(MAP_TYPES.keys()), index=0)
 
 
 # === FILTERING FUNCTION ===
 def apply_filters(df):
     df_filtered = df.copy()
-
-    # Date filter
-    df_filtered = df_filtered[(df_filtered["Date"] >= date_range[0]) & (df_filtered["Date"] <= date_range[1])]
 
     # Track filters
     if not show_tracks:
@@ -133,8 +152,15 @@ def apply_filters(df):
         # Apply track-specific filters
         tracks_mask = df_filtered["Type"] == "track"
 
+        # Date filter for tracks
+        tracks_mask &= (df_filtered["Date"] >= tracks_date_range[0]) & (df_filtered["Date"] <= tracks_date_range[1])
+
         if genre != "All":
             tracks_mask &= df_filtered["Genre"] == genre
+
+        if collection != "Choose a collection":
+            if "Collection" in df_filtered.columns:
+                tracks_mask &= df_filtered["Collection"] == collection
 
         if search_tracks:
             # Assuming there's a column like "Title" or "Description" to search in
@@ -149,6 +175,9 @@ def apply_filters(df):
         if not recorded:
             tracks_mask &= ~((df_filtered["Type"] == "track") & (df_filtered["Recorded"].str.lower() == "yes"))
 
+        if transcribed and "Transcribed" in df_filtered.columns:
+            tracks_mask &= df_filtered["Transcribed"] == True
+
         # Keep non-tracks and filtered tracks
         df_filtered = df_filtered[(df_filtered["Type"] != "track") | tracks_mask]
 
@@ -158,6 +187,9 @@ def apply_filters(df):
     else:
         # Apply people-specific filters
         people_mask = df_filtered["Type"] == "person"
+
+        # Date filter for people
+        people_mask &= (df_filtered["Date"] >= people_date_range[0]) & (df_filtered["Date"] <= people_date_range[1])
 
         if type2 != "All":
             # Assuming there's a "PersonType" column or similar
@@ -171,31 +203,11 @@ def apply_filters(df):
                 if col in df_filtered.columns:
                     people_mask &= df_filtered[col].fillna("").str.contains(search_people, case=False)
 
-        if not subject2:
-            people_mask &= ~((df_filtered["Type"] == "person") & (df_filtered["Subject"].str.lower() == "yes"))
-
         if not from_toggle:
             people_mask &= ~((df_filtered["Type"] == "person") & (df_filtered["From"].str.lower() == "yes"))
 
         # Keep non-people and filtered people
         df_filtered = df_filtered[(df_filtered["Type"] != "person") | people_mask]
-
-    # Location filter (Scotland filter)
-    if not outwith_scotland:
-        # Assuming there's a column indicating if a location is in Scotland
-        # If not, you could filter by latitude/longitude bounds
-        if "InScotland" in df_filtered.columns:
-            df_filtered = df_filtered[df_filtered["InScotland"] == True]
-        else:
-            # Approximate Scotland bounds
-            scotland_lat_min, scotland_lat_max = 54.6, 60.9
-            scotland_lon_min, scotland_lon_max = -8.7, -0.7
-            df_filtered = df_filtered[
-                (df_filtered["Latitude"] >= scotland_lat_min) &
-                (df_filtered["Latitude"] <= scotland_lat_max) &
-                (df_filtered["Longitude"] >= scotland_lon_min) &
-                (df_filtered["Longitude"] <= scotland_lon_max)
-                ]
 
     return df_filtered
 
@@ -227,13 +239,23 @@ def compute_scaled_radius(value):
 
 # === MAP ===
 with col1:
-    # Create base map
+    # Create base map with appropriate base map type
+    selected_map_type = map_type
+
+    # Determine the map tile URL based on selection
+    if isinstance(MAP_TYPES[selected_map_type], dict):
+        # For historical maps with overlay
+        base_tiles = MAP_TYPES[selected_map_type]["base"]
+    else:
+        # For regular maps (Standard, Landscape, Satellite)
+        base_tiles = MAP_TYPES[selected_map_type]
+
     m = folium.Map(
         location=[df_filtered["Latitude"].mean() if not df_filtered.empty else 56.4907,
                   df_filtered["Longitude"].mean() if not df_filtered.empty else -4.2026],
         # Default to center of Scotland if empty
         zoom_start=6,
-        tiles=MAPTILER_TILES,
+        tiles=base_tiles,
         attr=MAPTILER_ATTR
     )
 
@@ -255,12 +277,6 @@ with col1:
             })
 
     if show_people:
-        if subject2:
-            layer_specs.append({
-                "name": "Subject people",
-                "filter": (df_filtered["Type"] == "person") & (df_filtered["Subject"].str.lower() == "yes"),
-                "color": "red"
-            })
         if from_toggle:
             layer_specs.append({
                 "name": "From people",
@@ -292,23 +308,15 @@ with col1:
     if not has_data:
         st.warning("No data to display based on current filters. Please adjust your filter settings.")
 
-    # Add historical map overlays if selected
-    if overlays != "None":
-        # You'll need to provide the correct URLs for these historical maps
-        overlay_urls = {
-            "Great Britain, Ordnance Survey, 1900s": f"https://api.maptiler.com/tiles/uk-osgb1888/{{z}}/{{x}}/{{y}}?key={MAPTILER_API_KEY}",
-            "Great Britain, Ordnance Survey, 1'' (1885-1903)": f"https://api.maptiler.com/tiles/uk-osgb63k1885/{{z}}/{{x}}/{{y}}.png?key={MAPTILER_API_KEY}",
-            "Great Britain, Ordnance Survey, 6'' (1888-1913)": f"https://api.maptiler.com/tiles/uk-osgb10k1888/{{z}}/{{x}}/{{y}}.jpg?key={MAPTILER_API_KEY}"
-        }
-
-        if overlays in overlay_urls:
-            folium.TileLayer(
-                tiles=overlay_urls[overlays],
-                attr="Historical Map",
-                name=overlays,
-                overlay=True,
-                opacity=0.7
-            ).add_to(m)
+    # Add historical map overlays if selected and if it has an overlay
+    if isinstance(MAP_TYPES[selected_map_type], dict) and "overlay" in MAP_TYPES[selected_map_type]:
+        folium.TileLayer(
+            tiles=MAP_TYPES[selected_map_type]["overlay"],
+            attr="Historical Map",
+            name=selected_map_type,
+            overlay=True,
+            opacity=0.7
+        ).add_to(m)
 
     # Display the map
     st_map = st_folium(m, width="100%", height=700)
@@ -323,8 +331,6 @@ with col1:
         legend_html += """<div style='margin-bottom: 5px;'><span style='background-color: yellow; border-radius: 50%; display: inline-block; height: 12px; width: 12px;'></span> Tracks about</div>"""
     if show_tracks and recorded:
         legend_html += """<div style='margin-bottom: 5px;'><span style='background-color: green; border-radius: 50%; display: inline-block; height: 12px; width: 12px;'></span> Tracks recorded</div>"""
-    if show_people and subject2:
-        legend_html += """<div style='margin-bottom: 5px;'><span style='background-color: red; border-radius: 50%; display: inline-block; height: 12px; width: 12px;'></span> People mentioned</div>"""
     if show_people and from_toggle:
         legend_html += """<div style='margin-bottom: 5px;'><span style='background-color: purple; border-radius: 50%; display: inline-block; height: 12px; width: 12px;'></span> People from</div>"""
 
@@ -335,48 +341,12 @@ with col1:
 # === RELEVANT ITEMS ===
 with col2:
     st.markdown("Search results")
-    results_sort = st.selectbox("Sort", options=["Tracks first", "People first"], index=0)
-    st.image("record.png", use_container_width=True)
 
+    # Create tabs for Tracks and People
+    tracks_tab, people_tab = st.tabs(["🎵 Tracks", "👤 People"])
 
-    # if st.session_state.show_relevant_items:
-    #     results_sort = st.selectbox("Sort", options=["Tracks first", "People first"], index=0)
-    #
-    #     # Display results based on map click
-    #
-    #     if st_map and 'last_clicked' in st_map and st_map['last_clicked']:
-    #         clicked_lat = st_map['last_clicked']['lat']
-    #         clicked_lng = st_map['last_clicked']['lng']
-    #
-    #         # Find locations near the clicked point (with some tolerance)
-    #         tolerance = 0.01  # Adjust based on your needs
-    #         nearby_items = df_filtered[
-    #             (df_filtered['Latitude'] >= clicked_lat - tolerance) &
-    #             (df_filtered['Latitude'] <= clicked_lat + tolerance) &
-    #             (df_filtered['Longitude'] >= clicked_lng - tolerance) &
-    #             (df_filtered['Longitude'] <= clicked_lng + tolerance)
-    #             ]
-    #
-    #         if not nearby_items.empty:
-    #             # Sort results based on user preference
-    #             if results_sort == "Tracks first":
-    #                 nearby_items = nearby_items.sort_values(by=["Type", "Date"], key=lambda x: x.map(
-    #                     {"track": 0, "person": 1} if x.name == "Type" else x))
-    #             else:
-    #                 nearby_items = nearby_items.sort_values(by=["Type", "Date"], key=lambda x: x.map(
-    #                     {"person": 0, "track": 1} if x.name == "Type" else x))
-    #
-    #             # Display nearby items
-    #             location_name = nearby_items.iloc[0]["LocationEN"]
-    #             st.subheader(f"Items at {location_name}")
-    #
-    #             for i, (_, item) in enumerate(nearby_items.iterrows()):
-    #                 with st.expander(f"{item['Type'].title()}: {item.get('Title', item.get('Name', 'Unnamed'))}"):
-    #                     # Display item details based on type
-    #                     for col in item.index:
-    #                         if col not in ["Latitude", "Longitude", "Type"] and not pd.isna(item[col]):
-    #                             st.write(f"**{col}:** {item[col]}")
-    #         else:
-    #             st.markdown("Click on a location on the map to see items from that area.")
-    #     else:
-    #         st.markdown("Click on a location on the map to see items from that area.")
+    with tracks_tab:
+        st.image("tracks_list.png", use_container_width=True)
+
+    with people_tab:
+        st.image("people_list.png", use_container_width=True)
