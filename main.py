@@ -112,7 +112,7 @@ people_types = ["All", "With songs", "With stories", "With information", "With v
                 "With radio programmes"]
 
 with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
-    filter_col1, filter_col2 = st.columns(2)
+    filter_col1, filter_col_mid, filter_col2 = st.columns([2,0.5, 2])
 
     with filter_col1:
         tracks_title_col, show_tracks_col = st.columns([4, 2])  # Adjust ratio as needed
@@ -134,6 +134,19 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
                                 help="Shows/Hides locations where tracks have no transcriptions")
         tracks_date_range = st.slider("Date recorded", min_value=1935, max_value=2025,
                                       value=(1935, 2025))
+    with filter_col_mid:
+        st.markdown(
+            """
+            <style>
+            div[data-testid="stRadio"] {
+                display: flex;
+                justify-content: center;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        operator = st.radio("", ["OR", "AND"], index=0, help="<TBD>")
 
     with filter_col2:
         people_title_col, show_people_col = st.columns([4, 2])  # Adjust ratio as needed
@@ -147,7 +160,8 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
                                       Use name:, patronymics: or bio: keywords to improve search
                                       precision. For example - name:"Smith" or bio:"singer"''')
         type2 = st.selectbox("Type", options=people_types, index=0)
-        from_toggle = st.toggle("From", value=True, help="Shows/Hides native areas of fieldworkers and contributors")
+        from_toggle = True
+        #from_toggle = st.toggle("From", value=True, help="Shows/Hides native areas of fieldworkers and contributors")
         people_date_range = st.slider("Date range", min_value=1900, max_value=2025,
                                       value=(1900, 2025))
 
