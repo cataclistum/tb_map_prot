@@ -122,13 +122,11 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
             show_tracks = st.toggle("Show Tracks", value=True)
 
         search_tracks = st.text_input("Full text search in tracks",
-                                      help='''Searches in track titles and descriptions/summaries.
-                                      Use title:, description:, summary:, notes:, classification: keywords to improve
-                                      search precision. For example - summary:"Highlands"''')
+                                      help='''Searches in track titles and descriptions/summaries.''')
         genre = st.selectbox("Genre", options=["All"] + sorted(df["Genre"].dropna().unique().tolist()), index=0)
         language = st.selectbox("Language", options=["Any", "English", "Gaelic", "Scots", "Other"], index=0)
-        collection = st.selectbox("Collection", options=["Choose a collection", "SoSS", "BBC", "Canna"], index=0)
-        subject = st.toggle("Subject", value=True, help="Shows/Hides locations mentioned in tracks")
+        collection = st.selectbox("Collection", options=["All", "SoSS", "BBC", "Canna"], index=0)
+        subject = st.toggle("Subject location", value=True, help="Shows/Hides locations mentioned in tracks")
         recorded = st.toggle("Recorded", value=True, help="Shows/Hides locations where tracks have been recorded")
         transcribed = st.toggle("Transcribed only", value=False,
                                 help="Shows/Hides locations where tracks have no transcriptions")
@@ -156,14 +154,12 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
             show_people = st.toggle("Show People", value=True)
 
         search_people = st.text_input("Full text search in people",
-                                      help='''Searches in fieldworkers\' or contributors\' names and patronymics.
-                                      Use name:, patronymics: or bio: keywords to improve search
-                                      precision. For example - name:"Smith" or bio:"singer"''')
+                                      help='''Searches in fieldworkers\' or contributors\' names and patronymics.''')
         type2 = st.selectbox("Type", options=people_types, index=0)
         from_toggle = True
         #from_toggle = st.toggle("From", value=True, help="Shows/Hides native areas of fieldworkers and contributors")
-        people_date_range = st.slider("Date range", min_value=1900, max_value=2025,
-                                      value=(1900, 2025))
+        people_date_range = st.slider("Date born", min_value=1850, max_value=2025,
+                                      value=(1850, 2025))
 
 
     st.divider()
@@ -176,6 +172,14 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
         location_names = ["None", "English", "Gàidhlig", "English/Gàidhlig"]
         location_filter = st.selectbox("Location names", options=location_names, index=0)
 
+    st.divider()
+
+    # Add the buttons in a row
+    filter_col1, filter_col2 = st.columns(2)
+    with filter_col1:
+        st.button("🔍 Apply Filters", type="primary")
+    with filter_col2:
+        st.button("↺ Reset Filters")
 
 # === FILTERING FUNCTION ===
 def apply_filters(df):
@@ -197,7 +201,7 @@ def apply_filters(df):
         if language != "Any" and "Language" in df_filtered.columns:
             tracks_mask &= df_filtered["Language"] == language
 
-        if collection != "Choose a collection":
+        if collection != "All":
             if "Collection" in df_filtered.columns:
                 tracks_mask &= df_filtered["Collection"] == collection
 
@@ -461,3 +465,27 @@ with col2:
 
     with people_tab:
         st.image("people_list.png", use_container_width=True)
+
+with st.expander("Advanced searching"):
+    legend_html = """
+    <div style='padding: 10px; border-radius: 5px; position: relative;'>
+    <h4 style='margin-top: 0;'>Advanced searching techniques</h4>
+    """
+
+    if show_tracks and subject:
+        legend_html += """<div style='margin-bottom: 5px;'>The 'Full text search in tracks' and 'Full text search
+         in people' fields offer additional functionality to advanced users.<br><br>        
+         <b>Advanced tracks searching:</b><br>
+         Use title:, description:, summary:, notes: or classification: keywords to improve search precision. 
+        For example:<br>
+         - summary:"Highlands"<br>
+         - title:"Healing wells"<br><br><br>
+         <b>Advanced people searching:</b><br>
+         Use name:, patronymics: or bio: keywords to improve search precision. 
+        For example:<br>
+         - name:"Smith"<br>
+         - bio:"singer"<br>
+         </div>"""
+    legend_html += "</div>"
+
+    st.markdown(legend_html, unsafe_allow_html=True)
