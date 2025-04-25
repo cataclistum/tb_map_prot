@@ -429,7 +429,7 @@ with col1:
         ).add_to(m)
 
     # Display the map and track zoom changes
-    st_map = st_folium(m, width="100%", height=800, returned_objects=[])
+    st_map = st_folium(m, width="100%", height=800)
 
     # Update session state with current zoom if available
     if st_map and 'zoom' in st_map:
