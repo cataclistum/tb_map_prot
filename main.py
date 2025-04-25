@@ -325,7 +325,8 @@ with col1:
         # Default to center of Scotland if empty
         zoom_start=current_zoom,
         tiles=base_tiles,
-        attr=MAPTILER_ATTR
+        attr=MAPTILER_ATTR,
+        height_restriction=800
     )
 
     # Add Fullscreen button to map
