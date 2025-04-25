@@ -428,7 +428,7 @@ with col1:
         ).add_to(m)
 
     # Display the map and track zoom changes
-    st_map = st_folium(m, width="100%", height=700, returned_objects=[])
+    st_map = st_folium(m, width="100%", height=800, returned_objects=[])
 
     # Update session state with current zoom if available
     if st_map and 'zoom' in st_map:
@@ -467,13 +467,13 @@ with col2:
         st.image("people_list.png", use_container_width=True)
 
 with st.expander("Advanced searching"):
-    legend_html = """
+    advanced_search_html = """
     <div style='padding: 10px; border-radius: 5px; position: relative;'>
     <h4 style='margin-top: 0;'>Advanced searching techniques</h4>
     """
 
     if show_tracks and subject:
-        legend_html += """<div style='margin-bottom: 5px;'>The 'Full text search in tracks' and 'Full text search
+        advanced_search_html += """<div style='margin-bottom: 5px;'>The 'Full text search in tracks' and 'Full text search
          in people' fields offer additional functionality to advanced users.<br><br>        
          <b>Advanced tracks searching:</b><br>
          Use title:, description:, summary:, notes: or classification: keywords to improve search precision. 
@@ -486,6 +486,6 @@ with st.expander("Advanced searching"):
          - name:"Smith"<br>
          - bio:"singer"<br>
          </div>"""
-    legend_html += "</div>"
+    advanced_search_html += "</div>"
 
-    st.markdown(legend_html, unsafe_allow_html=True)
+    st.markdown(advanced_search_html, unsafe_allow_html=True)
