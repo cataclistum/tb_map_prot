@@ -462,9 +462,6 @@ with col2:
     with people_tab:
         st.image("people_list.png", use_container_width=True)
 
-# === ADVANCED SEARCHING (MOVED OUTSIDE THE MAIN CONTENT FLOW) ===
-# Create a container for the Advanced Searching expander
-# This is the key fix - by placing the expander outside the columns layout
 advanced_container = st.container()
 
 with advanced_container:
