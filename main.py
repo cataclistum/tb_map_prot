@@ -52,12 +52,6 @@ ZOOM_THRESHOLDS = {
 # === PAGE CONFIG ===
 st.set_page_config(layout="wide")
 
-# Display menu.png at the top center of the screen
-col_left, col_center, col_right = st.columns([0.1, 2, 0.1])
-with col_center:
-    st.image("menu.png", use_container_width=True)
-
-
 # === DATA LOAD ===
 @st.cache_data(ttl=3600)  # Cache for 1 hour
 def load_data():
@@ -107,79 +101,10 @@ if "show_relevant_items" not in st.session_state:
 if "map_zoom" not in st.session_state:
     st.session_state.map_zoom = 6  # Default zoom level
 
-# === FILTER PANEL ===
-people_types = ["All", "With songs", "With stories", "With information", "With verses", "With music",
-                "With radio programmes"]
-
-with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
-    filter_col1, filter_col_mid, filter_col2 = st.columns([2,0.5, 2])
-
-    with filter_col1:
-        tracks_title_col, show_tracks_col = st.columns([4, 2])  # Adjust ratio as needed
-        with tracks_title_col:
-            st.markdown("### 🎵 Tracks")
-        with show_tracks_col:
-            show_tracks = st.toggle("Show Tracks", value=True)
-
-        search_tracks = st.text_input("Full text search in tracks",
-                                      help='''Searches in track titles and descriptions/summaries.''')
-        genre = st.selectbox("Genre", options=["All"] + sorted(df["Genre"].dropna().unique().tolist()), index=0)
-        language = st.selectbox("Language", options=["Any", "English", "Gaelic", "Scots", "Other"], index=0)
-        collection = st.selectbox("Collection", options=["All", "SoSS", "BBC", "Canna"], index=0)
-        subject = st.toggle("Subject location", value=True, help="Shows/Hides locations mentioned in tracks")
-        recorded = st.toggle("Recorded", value=True, help="Shows/Hides locations where tracks have been recorded")
-        transcribed = st.toggle("Transcribed only", value=False,
-                                help="Shows/Hides locations where tracks have no transcriptions")
-        tracks_date_range = st.slider("Date recorded", min_value=1935, max_value=2025,
-                                      value=(1935, 2025))
-    with filter_col_mid:
-        st.markdown(
-            """
-            <style>
-            div[data-testid="stRadio"] {
-                display: flex;
-                justify-content: center;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
-        operator = st.radio("", ["OR", "AND"], index=0, help="<TBD>")
-
-    with filter_col2:
-        people_title_col, show_people_col = st.columns([4, 2])  # Adjust ratio as needed
-        with people_title_col:
-            st.markdown("### 👤 People")
-        with show_people_col:
-            show_people = st.toggle("Show People", value=True)
-
-        search_people = st.text_input("Full text search in people",
-                                      help='''Searches in fieldworkers\' or contributors\' names and patronymics.''')
-        type2 = st.selectbox("Type", options=people_types, index=0)
-        from_toggle = True
-        #from_toggle = st.toggle("From", value=True, help="Shows/Hides native areas of fieldworkers and contributors")
-        people_date_range = st.slider("Date born", min_value=1850, max_value=2025,
-                                      value=(1850, 2025))
-
-
-    st.divider()
-
-    map_filters_left_col, map_filters_right_col = st.columns([2, 2])
-    with map_filters_left_col:
-        map_type = st.selectbox("Map type", options=list(MAP_TYPES.keys()), index=0)
-
-    with map_filters_right_col:
-        location_names = ["None", "English", "Gàidhlig", "English/Gàidhlig"]
-        location_filter = st.selectbox("Location names", options=location_names, index=0)
-
-    st.divider()
-
-    # Add the buttons in a row
-    filter_col1, filter_col2 = st.columns(2)
-    with filter_col1:
-        st.button("🔍 Apply Filters", type="primary")
-    with filter_col2:
-        st.button("↺ Reset Filters")
+# Display menu.png at the top center of the screen
+col_left, col_center, col_right = st.columns([0.1, 2, 0.1])
+with col_center:
+    st.image("menu.png", use_container_width=True)
 
 # === FILTERING FUNCTION ===
 def apply_filters(df):
@@ -258,7 +183,79 @@ def apply_filters(df):
 
     return df_filtered
 
+# === FILTER PANEL ===
+with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
+    filter_col1, filter_col_mid, filter_col2 = st.columns([2, 0.5, 2])
 
+    with filter_col1:
+        tracks_title_col, show_tracks_col = st.columns([4, 2])  # Adjust ratio as needed
+        with tracks_title_col:
+            st.markdown("### 🎵 Tracks")
+        with show_tracks_col:
+            show_tracks = st.toggle("Show Tracks", value=True)
+
+        search_tracks = st.text_input("Full text search in tracks",
+                                      help='''Searches in track titles and descriptions/summaries.''')
+        genre = st.selectbox("Genre", options=["All"] + sorted(df["Genre"].dropna().unique().tolist()), index=0)
+        language = st.selectbox("Language", options=["Any", "English", "Gaelic", "Scots", "Other"], index=0)
+        collection = st.selectbox("Collection", options=["All", "SoSS", "BBC", "Canna"], index=0)
+        subject = st.toggle("Subject location", value=True, help="Shows/Hides locations mentioned in tracks")
+        recorded = st.toggle("Recorded", value=True, help="Shows/Hides locations where tracks have been recorded")
+        transcribed = st.toggle("Transcribed only", value=False,
+                                help="Shows/Hides locations where tracks have no transcriptions")
+        tracks_date_range = st.slider("Date recorded", min_value=1935, max_value=2025,
+                                      value=(1935, 2025))
+    with filter_col_mid:
+        st.markdown(
+            """
+            <style>
+            div[data-testid="stRadio"] {
+                display: flex;
+                justify-content: center;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        operator = st.radio("", ["OR", "AND"], index=0, help="<TBD>")
+
+    with filter_col2:
+        people_title_col, show_people_col = st.columns([4, 2])  # Adjust ratio as needed
+        with people_title_col:
+            st.markdown("### 👤 People")
+        with show_people_col:
+            show_people = st.toggle("Show People", value=True)
+
+        search_people = st.text_input("Full text search in people",
+                                      help='''Searches in fieldworkers\' or contributors\' names and patronymics.''')
+        people_types = ["All", "With songs", "With stories", "With information", "With verses", "With music",
+                        "With radio programmes"]
+        type2 = st.selectbox("Type", options=people_types, index=0)
+        from_toggle = True
+        #from_toggle = st.toggle("From", value=True, help="Shows/Hides native areas of fieldworkers and contributors")
+        people_date_range = st.slider("Date born", min_value=1850, max_value=2025,
+                                      value=(1850, 2025))
+
+    st.divider()
+
+    map_filters_left_col, map_filters_right_col = st.columns([2, 2])
+    with map_filters_left_col:
+        map_type = st.selectbox("Map type", options=list(MAP_TYPES.keys()), index=0)
+
+    with map_filters_right_col:
+        location_names = ["None", "English", "Gàidhlig", "English/Gàidhlig"]
+        location_filter = st.selectbox("Location names", options=location_names, index=0)
+
+    st.divider()
+
+    # Add the buttons in a row
+    filter_col1, filter_col2 = st.columns(2)
+    with filter_col1:
+        st.button("🔍 Apply Filters", type="primary")
+    with filter_col2:
+        st.button("↺ Reset Filters")
+
+# Apply the filters to the data
 df_filtered = apply_filters(df)
 
 # === RIGHT-ALIGNED TOGGLE CONTROLLER ===
@@ -272,17 +269,16 @@ if toggle_value != st.session_state.show_relevant_items:
     st.session_state.show_relevant_items = toggle_value
     st.rerun()
 
+# Set column layout based on toggle state
 if st.session_state.show_relevant_items:
     col1, col2 = st.columns([4, 1])
 else:
     col1, col2 = st.columns([1, 0.0001])
 
-
 # === COMPUTE SCALED RADIUS FUNCTION ===
 def compute_scaled_radius(value):
     raw = np.log10(value + 1) * SCALE_MULTIPLIER
     return min(max(raw, MIN_RADIUS), MAX_RADIUS)
-
 
 # === GET DISPLAY NAME BASED ON LOCATION FILTER ===
 def get_display_name(row, location_filter):
@@ -301,7 +297,6 @@ def get_display_name(row, location_filter):
         else:
             return en_name
     return en_name  # Default fallback
-
 
 # === MAP ===
 with col1:
@@ -467,6 +462,9 @@ with col2:
     with people_tab:
         st.image("people_list.png", use_container_width=True)
 
+# === ADVANCED SEARCHING (MOVED OUTSIDE THE MAIN CONTENT FLOW) ===
+# Create a container for the Advanced Searching expander
+# This is the key fix - by placing the expander outside the columns layout
 advanced_container = st.container()
 
 with advanced_container:
