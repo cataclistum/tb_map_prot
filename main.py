@@ -462,28 +462,25 @@ with col2:
     with people_tab:
         st.image("people_list.png", use_container_width=True)
 
-advanced_container = st.container()
 
-with advanced_container:
-    with st.expander("Advanced searching"):
-        advanced_search_html = """
-        <div style='padding: 10px; border-radius: 5px; position: relative;'>
-        <h4 style='margin-top: 0;'>Advanced searching techniques</h4>
-        """
+advanced_search_html = """
+<div style='padding: 10px; border-radius: 5px; position: relative;'>
+<h4 style='margin-top: 0;'>Advanced searching techniques</h4>
+<div style='margin-bottom: 5px;'>The 'Full text search in tracks' and 'Full text search
+ in people' fields offer additional functionality to advanced users.<br><br>        
+ <b>Advanced tracks searching:</b><br>
+ Use title:, description:, summary:, notes: or classification: keywords to improve search precision. 
+For example:<br>
+ - summary:"Highlands"<br>
+ - title:"Healing wells"<br><br><br>
+ <b>Advanced people searching:</b><br>
+ Use name:, patronymics: or bio: keywords to improve search precision. 
+For example:<br>
+ - name:"Smith"<br>
+ - bio:"singer"<br>
+ </div>
+</div>
+"""
 
-        advanced_search_html += """<div style='margin-bottom: 5px;'>The 'Full text search in tracks' and 'Full text search
-         in people' fields offer additional functionality to advanced users.<br><br>        
-         <b>Advanced tracks searching:</b><br>
-         Use title:, description:, summary:, notes: or classification: keywords to improve search precision. 
-        For example:<br>
-         - summary:"Highlands"<br>
-         - title:"Healing wells"<br><br><br>
-         <b>Advanced people searching:</b><br>
-         Use name:, patronymics: or bio: keywords to improve search precision. 
-        For example:<br>
-         - name:"Smith"<br>
-         - bio:"singer"<br>
-         </div>"""
-        advanced_search_html += "</div>"
-
-        st.markdown(advanced_search_html, unsafe_allow_html=True)
+with st.expander("Advanced searching"):
+    st.markdown(advanced_search_html, unsafe_allow_html=True)
