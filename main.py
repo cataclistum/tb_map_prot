@@ -218,7 +218,7 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
             """,
             unsafe_allow_html=True
         )
-        operator = st.radio("", ["OR", "AND"], index=0, help="<TBD>")
+        operator = st.radio("", ["OR", "AND"], index=0)
 
     with filter_col2:
         people_title_col, show_people_col = st.columns([4, 2])  # Adjust ratio as needed
