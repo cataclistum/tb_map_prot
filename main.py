@@ -199,10 +199,11 @@ with st.expander("🔍 Filters", expanded=st.session_state.show_filters):
         genre = st.selectbox("Genre", options=["All"] + sorted(df["Genre"].dropna().unique().tolist()), index=0)
         language = st.selectbox("Language", options=["Any", "English", "Gaelic", "Scots", "Other"], index=0)
         collection = st.selectbox("Collection", options=["All", "SoSS", "BBC", "Canna"], index=0)
-        subject = st.toggle("Subject location", value=True, help="Shows/Hides locations mentioned in tracks")
-        recorded = st.toggle("Recorded", value=True, help="Shows/Hides locations where tracks have been recorded")
         transcribed = st.toggle("Transcribed only", value=False,
                                 help="Shows/Hides locations where tracks have no transcriptions")
+        subject = st.toggle("Places mentioned", value=True, help="Shows/Hides locations mentioned in tracks")
+        recorded = st.toggle("Places recorded", value=True, help="Shows/Hides locations where tracks have been recorded")
+
         tracks_date_range = st.slider("Date recorded", min_value=1935, max_value=2025,
                                       value=(1935, 2025))
     with filter_col_mid:
